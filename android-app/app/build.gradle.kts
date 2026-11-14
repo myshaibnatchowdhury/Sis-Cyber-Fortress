@@ -19,8 +19,8 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "SUPABASE_URL", "\"https://placeholder-project.supabase.co\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"placeholder-anon-key\"")
+        buildConfigField("String", "SUPABASE_URL", "\"https://gqgdcqtbxshkwjfsvwjl.supabase.co\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_QmHlw4-ZEI9EMvYI0KxF5g_Z6MkS6_Z\"")
     }
 
     buildTypes {
