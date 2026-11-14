@@ -4,6 +4,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.29%20(50%20Routes%20Compiled)-blue.svg)](file:///C:/Users/UESR/.gemini/antigravity/scratch/sis-cyber-fortress/web-app)
 [![Supabase](https://img.shields.io/badge/Supabase-46%20Tables%20%2B%20RLS-3ECF8E.svg)](file:///C:/Users/UESR/.gemini/antigravity/scratch/sis-cyber-fortress/supabase)
 [![Security](https://img.shields.io/badge/Zero--Knowledge-AES--256--GCM-red.svg)](file:///C:/Users/UESR/.gemini/antigravity/scratch/sis-cyber-fortress/docs/security/SECURITY_CHECKLIST.md)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmyshaibnatchowdhury%2FSis-Cyber-Fortress&root-directory=web-app&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY)
 
 **SIS CYBER FORTRESS** is a production-grade, enterprise-oriented cybersecurity ecosystem built on a **unified Supabase backend**. The platform pairs a native **Android Mobile Application (Kotlin + Jetpack Compose)** with a responsive **Next.js 15 Web Portal & Super Admin Console**, sharing the same PostgreSQL database, identical authentication authority, and unified Row Level Security (RLS) enforcement.
 
