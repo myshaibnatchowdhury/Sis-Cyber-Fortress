@@ -1,0 +1,50 @@
+# Root .gitignore for SIS CYBER FORTRESS Monorepo
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing & Coverage
+coverage/
+*.lcov
+.nyc_output
+
+# Next.js Build
+web-app/.next/
+web-app/out/
+web-app/build/
+dist/
+
+# Android Build Outputs & Intermediate Files
+android-app/**/build/
+android-app/.gradle/
+android-app/local.properties
+apk/
+android-app/*.iml
+android-app/**/*.iml
+android-app/.idea/
+android-app/**/.externalNativeBuild
+android-app/**/.cxx
+
+# Secrets & Local Environment Configs
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.keystore
+*.jks
+*.p12
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
