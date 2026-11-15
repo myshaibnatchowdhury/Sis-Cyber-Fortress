@@ -5,8 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
+import com.sis.cyberfortress.data.SupabaseApiClient
+import com.sis.cyberfortress.security.SessionManager
 import com.sis.cyberfortress.ui.navigation.FortressNavigation
 import com.sis.cyberfortress.ui.theme.CyberBg
 import com.sis.cyberfortress.ui.theme.SISCyberFortressTheme
@@ -20,8 +24,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = CyberBg
                 ) {
+                    val context = LocalContext.current
+                    val sessionManager = remember { SessionManager(context) }
+                    val apiClient = remember { SupabaseApiClient { sessionManager.getAccessToken() } }
                     val navController = rememberNavController()
-                    FortressNavigation(navController = navController)
+
+                    FortressNavigation(
+                        navController = navController,
+                        sessionManager = sessionManager,
+                        apiClient = apiClient
+                    )
                 }
             }
         }

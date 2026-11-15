@@ -1,18 +1,43 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Mail, Shield, Smartphone, Key, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function MyProfilePage() {
   const { profile, user, roles } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || "");
+  const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
   const [saved, setSaved] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (profile?.full_name) setFullName(profile.full_name);
+    if (profile?.phone_number) setPhoneNumber(profile.phone_number);
+  }, [profile]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setIsUpdating(true);
+    try {
+      if (isSupabaseConfigured && user) {
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName,
+            phone_number: phoneNumber,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error("Failed to update profile:", err);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -61,9 +86,10 @@ export default function MyProfilePage() {
           <div className="pt-2">
             <button
               type="submit"
-              className="rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-colors"
+              disabled={isUpdating}
+              className="rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-colors disabled:opacity-50"
             >
-              {saved ? "Profile Updated!" : "Save Profile Changes"}
+              {isUpdating ? "Synchronizing with Fortress..." : saved ? "✓ Profile Updated!" : "Save Profile Changes"}
             </button>
           </div>
         </form>

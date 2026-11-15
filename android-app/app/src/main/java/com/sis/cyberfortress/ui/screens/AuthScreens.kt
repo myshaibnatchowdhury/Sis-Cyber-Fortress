@@ -17,14 +17,64 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sis.cyberfortress.data.SupabaseApiClient
+import com.sis.cyberfortress.security.DeviceSecurityChecker
+import com.sis.cyberfortress.security.SessionManager
 import com.sis.cyberfortress.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-fun SplashScreen(onNavigateNext: () -> Unit) {
+fun SplashScreen(
+    sessionManager: SessionManager,
+    apiClient: SupabaseApiClient,
+    onNavigateDashboard: () -> Unit,
+    onNavigateLogin: () -> Unit,
+    onNavigateLocked: () -> Unit
+) {
     LaunchedEffect(Unit) {
-        delay(1500)
-        onNavigateNext()
+        val devId = sessionManager.getDeviceIdentifier()
+        val userId = sessionManager.getUserId()
+
+        // 1. Check if device is remotely locked or reported stolen
+        val lockStatus = apiClient.checkDeviceLockStatus(devId, userId).getOrNull()
+        if (lockStatus?.isLocked == true) {
+            sessionManager.setDeviceLocked(true, lockStatus.reason ?: "Device Stolen or Quarantined")
+            onNavigateLocked()
+            return@LaunchedEffect
+        }
+
+        if (sessionManager.isDeviceLocked()) {
+            onNavigateLocked()
+            return@LaunchedEffect
+        }
+
+        // 2. Check if logged in
+        if (sessionManager.isLoggedIn() && userId != null) {
+            // Heartbeat: sync device telemetry to Supabase
+            val report = DeviceSecurityChecker.assessDevice()
+            val syncResult = apiClient.registerOrSyncDevice(
+                userId = userId,
+                deviceIdentifier = devId,
+                deviceName = "${report.deviceModel} (Mobile Endpoint)",
+                deviceModel = report.deviceModel,
+                osVersion = report.osVersion,
+                isRooted = report.isRooted,
+                biometricsAvailable = true
+            ).getOrNull()
+
+            if (syncResult?.isLocked == true) {
+                sessionManager.setDeviceLocked(true, syncResult.reason ?: "Device locked by Admin")
+                onNavigateLocked()
+                return@LaunchedEffect
+            }
+
+            delay(800)
+            onNavigateDashboard()
+        } else {
+            delay(1000)
+            onNavigateLogin()
+        }
     }
 
     Box(
@@ -98,23 +148,23 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Surface(
-                    modifier = Modifier.size(96.dp),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.size(72.dp),
+                    shape = RoundedCornerShape(18.dp),
                     color = CyberEmerald.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.4f))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.3f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Security,
-                            contentDescription = "Fortress",
+                            contentDescription = null,
                             tint = CyberEmerald,
-                            modifier = Modifier.size(54.dp)
+                            modifier = Modifier.size(36.dp)
                         )
                     }
                 }
 
                 Text(
-                    text = "Enterprise-Grade Mobile Defense",
+                    text = "Unified Enterprise Defense",
                     color = CyberTextPrimary,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
@@ -153,13 +203,18 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
 
 @Composable
 fun LoginScreen(
+    sessionManager: SessionManager,
+    apiClient: SupabaseApiClient,
     onLoginSuccess: () -> Unit,
+    onNavigateLocked: () -> Unit,
     onNavigateRegister: () -> Unit,
     onNavigateForgotPassword: () -> Unit
 ) {
-    var email by remember { mutableStateOf("analyst@defense.internal") }
-    var password by remember { mutableStateOf("password123") }
+    val coroutineScope = rememberCoroutineScope()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -199,17 +254,35 @@ fun LoginScreen(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Authenticate your mobile defense session",
-                color = CyberTextSecondary,
-                fontSize = 12.sp
+                text = "Connected to Supabase Cloud Fortress",
+                color = CyberEmerald,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (errorMessage != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = CyberRose.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberRose)
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        color = CyberRose,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it; errorMessage = null },
                 label = { Text("Enterprise Email") },
+                placeholder = { Text("admin@siscyberfortress.internal") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = CyberEmerald) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -222,11 +295,11 @@ fun LoginScreen(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = { password = it; errorMessage = null },
                 label = { Text("Account Password") },
                 leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = CyberEmerald) },
                 visualTransformation = PasswordVisualTransformation(),
@@ -254,13 +327,72 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Button(
                 onClick = {
+                    if (email.isBlank() || password.isBlank()) {
+                        errorMessage = "Please enter both email and password."
+                        return@Button
+                    }
                     isLoading = true
-                    onLoginSuccess()
+                    errorMessage = null
+
+                    coroutineScope.launch {
+                        val authResult = apiClient.signIn(email.trim(), password)
+                        if (authResult.isSuccess) {
+                            val map = authResult.getOrNull()
+                            val accessToken = map?.get("access_token") as? String ?: ""
+                            val refreshToken = map?.get("refresh_token") as? String ?: ""
+                            val userObj = map?.get("user") as? Map<*, *>
+                            val userId = userObj?.get("id") as? String ?: ""
+                            val userEmail = userObj?.get("email") as? String ?: email.trim()
+
+                            // Check profile & stolen/lock status
+                            val devId = sessionManager.getDeviceIdentifier()
+                            val remoteCheck = apiClient.checkDeviceLockStatus(devId, userId).getOrNull()
+
+                            if (remoteCheck?.isLocked == true) {
+                                sessionManager.setDeviceLocked(true, remoteCheck.reason ?: "Reported Stolen or Quarantined")
+                                isLoading = false
+                                onNavigateLocked()
+                                return@launch
+                            }
+
+                            // Fetch full name from profile
+                            val profileRes = apiClient.fetchProfile(userId).getOrNull()
+                            val fullName = profileRes?.get("full_name") as? String ?: ""
+
+                            // Save session
+                            sessionManager.saveSession(
+                                accessToken = accessToken,
+                                refreshToken = refreshToken,
+                                userId = userId,
+                                email = userEmail,
+                                fullName = fullName
+                            )
+
+                            // Register this endpoint with Supabase
+                            val report = DeviceSecurityChecker.assessDevice()
+                            apiClient.registerOrSyncDevice(
+                                userId = userId,
+                                deviceIdentifier = devId,
+                                deviceName = "${report.deviceModel} (Mobile Endpoint)",
+                                deviceModel = report.deviceModel,
+                                osVersion = report.osVersion,
+                                isRooted = report.isRooted,
+                                biometricsAvailable = true
+                            )
+
+                            isLoading = false
+                            onLoginSuccess()
+                        } else {
+                            isLoading = false
+                            errorMessage = authResult.exceptionOrNull()?.message ?: "Authentication failed."
+                        }
+                    }
                 },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -293,12 +425,17 @@ fun LoginScreen(
 
 @Composable
 fun RegistrationScreen(
+    sessionManager: SessionManager,
+    apiClient: SupabaseApiClient,
     onRegisterSuccess: () -> Unit,
     onNavigateLogin: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -320,17 +457,35 @@ fun RegistrationScreen(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Create synchronized enterprise profile",
-                color = CyberTextSecondary,
-                fontSize = 12.sp
+                text = "Synchronized with Supabase & Web Platform",
+                color = CyberEmerald,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            if (errorMessage != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = CyberRose.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberRose)
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        color = CyberRose,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
 
             OutlinedTextField(
                 value = fullName,
                 onValueChange = { fullName = it },
                 label = { Text("Full Name") },
+                placeholder = { Text("Alex Vance") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -341,6 +496,7 @@ fun RegistrationScreen(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Enterprise Email") },
+                placeholder = { Text("alex@enterprise.com") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -350,7 +506,7 @@ fun RegistrationScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Master Password") },
+                label = { Text("Account Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -359,14 +515,75 @@ fun RegistrationScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = onRegisterSuccess,
+                onClick = {
+                    if (email.isBlank() || password.isBlank() || fullName.isBlank()) {
+                        errorMessage = "Please fill in all registration fields."
+                        return@Button
+                    }
+                    if (password.length < 6) {
+                        errorMessage = "Password must be at least 6 characters."
+                        return@Button
+                    }
+
+                    isLoading = true
+                    errorMessage = null
+
+                    coroutineScope.launch {
+                        val regResult = apiClient.signUp(email.trim(), password, fullName.trim())
+                        if (regResult.isSuccess) {
+                            // Automatically sign in
+                            val loginResult = apiClient.signIn(email.trim(), password)
+                            if (loginResult.isSuccess) {
+                                val map = loginResult.getOrNull()
+                                val accessToken = map?.get("access_token") as? String ?: ""
+                                val refreshToken = map?.get("refresh_token") as? String ?: ""
+                                val userObj = map?.get("user") as? Map<*, *>
+                                val userId = userObj?.get("id") as? String ?: ""
+
+                                sessionManager.saveSession(
+                                    accessToken = accessToken,
+                                    refreshToken = refreshToken,
+                                    userId = userId,
+                                    email = email.trim(),
+                                    fullName = fullName.trim()
+                                )
+
+                                val devId = sessionManager.getDeviceIdentifier()
+                                val report = DeviceSecurityChecker.assessDevice()
+                                apiClient.registerOrSyncDevice(
+                                    userId = userId,
+                                    deviceIdentifier = devId,
+                                    deviceName = "${report.deviceModel} (Mobile Endpoint)",
+                                    deviceModel = report.deviceModel,
+                                    osVersion = report.osVersion,
+                                    isRooted = report.isRooted,
+                                    biometricsAvailable = true
+                                )
+
+                                isLoading = false
+                                onRegisterSuccess()
+                            } else {
+                                isLoading = false
+                                onNavigateLogin()
+                            }
+                        } else {
+                            isLoading = false
+                            errorMessage = regResult.exceptionOrNull()?.message ?: "Registration failed."
+                        }
+                    }
+                },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = CyberEmerald)
             ) {
-                Text("Initialize Account", color = CyberBg, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = CyberBg)
+                } else {
+                    Text("Initialize Account & Register Endpoint", color = CyberBg, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

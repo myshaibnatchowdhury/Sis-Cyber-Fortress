@@ -101,10 +101,36 @@ export default function EndpointGuardianPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  ONLINE • SYNCED
-                </span>
+                {d.status === "lost" ? (
+                  <span className="rounded-full bg-rose-500/20 border border-rose-500 px-3 py-1 text-xs font-mono font-bold text-rose-300 flex items-center gap-1.5 animate-pulse">
+                    <span className="h-2 w-2 rounded-full bg-rose-400" />
+                    STOLEN • FROZEN
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    ONLINE • SYNCED
+                  </span>
+                )}
+
+                {d.status !== "lost" && (
+                  <button
+                    onClick={async () => {
+                      if (confirm("CRITICAL: Has your phone been lost or stolen? Reporting it stolen will instantly lock down the device, freeze local credentials, and notify the Security Administrator.")) {
+                        await fetch("/api/admin/device-control", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "stolen", device_id: d.id, actor_email: user?.email }),
+                        });
+                        loadDevices();
+                      }
+                    }}
+                    className="rounded-lg bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-500/20 transition-colors"
+                  >
+                    🚨 Report Stolen
+                  </button>
+                )}
+
                 <button
                   onClick={() => revokeDevice(d.id)}
                   className="rounded-lg p-2 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
