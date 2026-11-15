@@ -1,0 +1,7 @@
+android-app/
+apk/
+.git/
+scripts/
+docs/
+node_modules/
+.next/
