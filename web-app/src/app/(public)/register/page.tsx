@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [consentGranted, setConsentGranted] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,12 +26,16 @@ export default function RegisterPage() {
       return;
     }
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
 
     try {
       const res = await register(email, password, fullName);
       if (res.error) {
         setError(res.error);
+      } else if (res.needsEmailConfirmation) {
+        setSuccessMessage("Account created successfully! You can now proceed to log in.");
+        setTimeout(() => router.push("/login"), 2500);
       } else {
         router.push("/portal");
       }
@@ -59,6 +64,13 @@ export default function RegisterPage() {
             <div className="mb-6 flex items-center gap-2 rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-6 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{successMessage}</span>
             </div>
           )}
 
